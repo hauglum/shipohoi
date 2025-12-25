@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: ship-o-hoi
+
+  datasource:
+    url: jdbc:h2:mem:shipohoi
+    driver-class-name: org.h2.Driver
+    username: ${dsatasource.username}
+    password: ${datasource.password}
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+  config:
+    import: file:./config/app-secrets.yml
+
+barentswatch:
+  auth:
+    token-url: https://id.barentswatch.no/connect/token
+    client-id: ${barentswatch.client-id}
+    client-secret: ${barentswatch.client-secret}
+    scope: ais
+logging:
+  level:
+    no.hauglum.ship_o_hoi: INFO
