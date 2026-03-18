@@ -1,7 +1,6 @@
 spring:
   application:
     name: ship-o-hoi
-
   datasource:
     url: jdbc:h2:mem:shipohoi
     driver-class-name: org.h2.Driver
@@ -11,7 +10,6 @@ spring:
     console:
       enabled: true
       path: /h2-console
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -19,8 +17,7 @@ spring:
       hibernate:
         format_sql: true
   config:
-    import: file:./config/app-secrets.yml
-
+    import: file:C:/Users/sindr/secrets/shipohoi-app-secrets.yml
 barentswatch:
   auth:
     token-url: https://id.barentswatch.no/connect/token

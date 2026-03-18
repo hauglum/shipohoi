@@ -5,6 +5,8 @@ import no.hauglum.ship_o_hoi.auth.BarentsWatchTokenService;
 import no.hauglum.ship_o_hoi.model.AISShip;
 import no.hauglum.ship_o_hoi.parser.GeoJsonAISParser;
 import no.hauglum.ship_o_hoi.stream.LineAccumulator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.stereotype.Service;
@@ -31,13 +33,18 @@ public class BarentsWatchAISService {
         this.tokenService = tokenService;
     }
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     public Flux<AISShip> streamShips() {
         return Mono.fromSupplier(tokenService::getAccessToken)
                 .flatMapMany(token ->
                         webClient.get()
-                                .uri("/v1/combined?modelType=Full&modelFormat=Geojson")
+                                .uri(uriBuilder -> uriBuilder
+                                        .path("/v1/combined")
+                                        .queryParam("modelType", "Full")
+                                        .queryParam("modelFormat", "Geojson")
+                                        .queryParam("downsample", true)
+                                        .build()
+                                )
+
                                 .headers(h -> h.setBearerAuth(token))
                                 .exchangeToFlux(response ->
                                         response.bodyToFlux(DataBuffer.class)

@@ -2,6 +2,7 @@ package no.hauglum.ship_o_hoi;
 
 import no.hauglum.ship_o_hoi.model.DestinationProfile;
 import no.hauglum.ship_o_hoi.service.BarentsWatchAISService;
+import no.hauglum.ship_o_hoi.service.ShipAlertService;
 import no.hauglum.ship_o_hoi.model.AISShip;
 
 import org.slf4j.Logger;
@@ -9,20 +10,27 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 @Component
 public class HarborWatcher {
+    private final Map<String, Instant> lastAlert = new ConcurrentHashMap<>();
 
     private final BarentsWatchAISService aisService;
+    private final ShipAlertService shipAlertService;
     private final Logger log = LoggerFactory.getLogger(HarborWatcher.class);
 
-    public HarborWatcher(BarentsWatchAISService aisService) {
+    public HarborWatcher(BarentsWatchAISService aisService, ShipAlertService shipAlertService) {
         this.aisService = aisService;
+        this.shipAlertService = shipAlertService;
     }
 
 
@@ -30,7 +38,16 @@ public class HarborWatcher {
     public void startWatching() {
         DestinationProfile destinationProfile = ENGEBØ;
         log.info("🔎 Starting HarborWatcher for destination: {}", destinationProfile.name());
-        aisService.streamShips()
+
+        Flux<AISShip> ships = aisService.streamShips().share();
+        ships
+                .window(Duration.ofMinutes(1))
+                .flatMap(Flux::count)
+                .subscribe(count ->
+                        log.info("📊 AIS meldinger siste minutt: {}", count)
+                );
+
+        ships
                 .doOnSubscribe(s -> log.info("🚢 AIS stream started"))
                 .doOnError(e -> log.error("❌ AIS stream failed", e))
                 .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(15))
@@ -82,13 +99,23 @@ public class HarborWatcher {
                     )
             );
 
+
+    private static final DestinationProfile ASKEPOTT =
+            new DestinationProfile(
+                    "Askepott",
+                    Set.of(
+                            "Askepott"
+                    )
+            );
+
     private void handleShip(AISShip ship, DestinationProfile destination) {
+
 
         if (ship.name() == null || ship.destination() == null) {
             return;
         }
 
-        if (matchesDestination(ship, destination)) {
+        if (matchesDestination(ship, destination) && shouldAlert(ship)) {
             log.info(
                     "🚨 Skip mot {}: name={}, mmsi={}, sog={}, cog={}, pos=({}, {})",
                     destination.name(),
@@ -99,7 +126,18 @@ public class HarborWatcher {
                     ship.latitude(),
                     ship.longitude()
             );
+            shipAlertService.sendShipAlert(ship, destination.name());
         }
+    }
+
+    private boolean shouldAlert(AISShip ship) {
+        return lastAlert.compute(ship.mmsi(), (mmsi, last) -> {
+            Instant now = Instant.now();
+            if (last == null || last.isBefore(now.minus(Duration.ofHours(1)))) {
+                return now;
+            }
+            return last;
+        }).equals(Instant.now());
     }
 
     private boolean matchesDestination(AISShip ship, DestinationProfile profile) {
@@ -110,7 +148,7 @@ public class HarborWatcher {
         String dest = normalize(ship.destination());
 //        log.info("Normalized destination: '{}'", dest);
         for (String alias : profile.aliases()) {
-            if (dest.contains(alias)) {
+            if (dest.contains(normalize(alias) )) {
                 return true;
             }
         }
