@@ -4,6 +4,7 @@ import java.util.Set;
 
 public record DestinationProfile(
         String name,
-        Set<String> aliases
-) {}
+        Set<String> aliases,
+        Position position
+        ) {}
 

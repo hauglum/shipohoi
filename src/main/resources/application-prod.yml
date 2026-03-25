@@ -11,4 +11,6 @@ spring:
           starttls:
             enable: true
 email:
-  to: ${email.to}
+  to: sindrehauglum@gmail.com, sha@lottstift.no
+mapbox:
+  access-token: ${mapbox-access-token}

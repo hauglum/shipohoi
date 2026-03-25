@@ -1,6 +1,7 @@
 package no.hauglum.ship_o_hoi;
 
 import no.hauglum.ship_o_hoi.model.DestinationProfile;
+import no.hauglum.ship_o_hoi.model.Position;
 import no.hauglum.ship_o_hoi.service.BarentsWatchAISService;
 import no.hauglum.ship_o_hoi.service.ShipAlertService;
 import no.hauglum.ship_o_hoi.model.AISShip;
@@ -36,7 +37,9 @@ public class HarborWatcher {
 
     @EventListener(ApplicationReadyEvent.class)
     public void startWatching() {
-        DestinationProfile destinationProfile = ENGEBØ;
+        //TODO: Make it possible to configure which destination to watch for, maybe via application properties or environment variable or UI
+//        DestinationProfile destinationProfile = ENGEBØ;
+        DestinationProfile destinationProfile = HAUGESUND;
         log.info("🔎 Starting HarborWatcher for destination: {}", destinationProfile.name());
 
         Flux<AISShip> ships = aisService.streamShips().share();
@@ -68,7 +71,8 @@ public class HarborWatcher {
                             "engebohavn",
                             "engebo havn",
                             "engeb"
-                    )
+                    ),
+                    new Position(61.487982, 5.442754)
             );
 
 
@@ -82,7 +86,8 @@ public class HarborWatcher {
                             "Haugesundhavn",
                             "Haugesund havn",
                             "Hauges"
-                    )
+                    ),
+                    new Position(59.4138, 5.2677)
             );
 
 
@@ -96,7 +101,8 @@ public class HarborWatcher {
                             "Barentsburghavn",
                             "Barentsburg havn",
                             "Barentsb"
-                    )
+                    ),
+                    new Position(78.0667, 14.2333)
             );
 
 
@@ -105,7 +111,8 @@ public class HarborWatcher {
                     "Askepott",
                     Set.of(
                             "Askepott"
-                    )
+                    ),
+                    null
             );
 
     private void handleShip(AISShip ship, DestinationProfile destination) {
@@ -126,7 +133,7 @@ public class HarborWatcher {
                     ship.latitude(),
                     ship.longitude()
             );
-            shipAlertService.sendShipAlert(ship, destination.name());
+            shipAlertService.sendShipAlert(ship, destination.name(), destination.position());
         }
     }
 
