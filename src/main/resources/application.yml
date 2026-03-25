@@ -16,8 +16,6 @@ spring:
     properties:
       hibernate:
         format_sql: true
-  config:
-    import: file:C:/Users/sindr/secrets/shipohoi-app-secrets.yml
 barentswatch:
   auth:
     token-url: https://id.barentswatch.no/connect/token

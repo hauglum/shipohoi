@@ -38,8 +38,8 @@ public class HarborWatcher {
     @EventListener(ApplicationReadyEvent.class)
     public void startWatching() {
         //TODO: Make it possible to configure which destination to watch for, maybe via application properties or environment variable or UI
-//        DestinationProfile destinationProfile = ENGEBØ;
-        DestinationProfile destinationProfile = HAUGESUND;
+        DestinationProfile destinationProfile = ENGEBØ;
+//        DestinationProfile destinationProfile = HAUGESUND;
         log.info("🔎 Starting HarborWatcher for destination: {}", destinationProfile.name());
 
         Flux<AISShip> ships = aisService.streamShips().share();

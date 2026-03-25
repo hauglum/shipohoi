@@ -1,4 +1,18 @@
 spring:
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+  config:
+    import: file:C:/Users/sindr/secrets/shipohoi-app-secrets.yml
+  mail:
+    host: ${email.host}
+    port: ${email.port}
+    username: ${email.username}
+    password: ${email.password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+email:
+  to: sindrehauglum@gmail.com, sha@lottstift.no
+mapbox:
+  access-token: ${mapbox-access-token}

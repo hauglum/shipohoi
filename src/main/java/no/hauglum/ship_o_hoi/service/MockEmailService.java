@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 @Service
-@Profile("dev")
+@Profile("unused")
 public class MockEmailService implements ShipAlertService {
     private final MapService mapService;
     private final Logger log = LoggerFactory.getLogger(MockEmailService.class);

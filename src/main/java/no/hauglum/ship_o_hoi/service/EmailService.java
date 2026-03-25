@@ -14,7 +14,6 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
-@Profile("prod")
 public class EmailService implements ShipAlertService {
     private final JavaMailSender mailSender;
     private final MapService mapService;

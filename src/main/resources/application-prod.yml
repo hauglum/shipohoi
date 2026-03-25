@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: file:/opt/ship-o-hoi/application-secrets.yml
   mail:
     host: ${email.host}
     port: ${email.port}
