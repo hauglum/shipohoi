@@ -6,9 +6,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Instant;
-import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 public class BarentsWatchTokenService {
@@ -24,8 +25,6 @@ public class BarentsWatchTokenService {
     private volatile String cachedToken;
     private volatile Instant expiresAt;
 
-    private final ReentrantLock lock = new ReentrantLock();
-
     public BarentsWatchTokenService(
             WebClient.Builder builder,
             @Value("${barentswatch.auth.token-url}") String tokenUrl,
@@ -40,28 +39,22 @@ public class BarentsWatchTokenService {
         this.scope = scope;
     }
 
-    public String getAccessToken() {
+    public Mono<String> getAccessToken() {
         if (cachedToken != null && !isExpired()) {
-            return cachedToken;
+            return Mono.just(cachedToken);
         }
 
-        lock.lock();
-        try {
-            if (cachedToken == null || isExpired()) {
-                refreshToken();
-            }
-            return cachedToken;
-        } finally {
-            lock.unlock();
-        }
+        return refreshToken()
+                .subscribeOn(Schedulers.boundedElastic())
+                .cache();
     }
 
     private boolean isExpired() {
         return expiresAt == null || Instant.now().isAfter(expiresAt.minusSeconds(60));
     }
 
-    private void refreshToken() {
-        TokenResponse response = webClient.post()
+    private Mono<String> refreshToken() {
+        return webClient.post()
                 .uri(tokenUrl)
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .body(BodyInserters.fromFormData("grant_type", "client_credentials")
@@ -71,10 +64,10 @@ public class BarentsWatchTokenService {
                 .retrieve()
                 .bodyToMono(TokenResponse.class)
                 .doOnNext(r -> log.info("Token scope: {}", scope))
-                .block();
-
-        this.cachedToken = response.getAccessToken();
-        this.expiresAt = Instant.now().plusSeconds(response.getExpiresIn());
+                .doOnNext(r -> {
+                    this.cachedToken = r.getAccessToken();
+                    this.expiresAt = Instant.now().plusSeconds(r.getExpiresIn());
+                })
+                .map(TokenResponse::getAccessToken);
     }
 }
-

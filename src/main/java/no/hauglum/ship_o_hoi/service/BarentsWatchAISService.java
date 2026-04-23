@@ -34,7 +34,7 @@ public class BarentsWatchAISService {
     }
 
     public Flux<AISShip> streamShips() {
-        return Mono.fromSupplier(tokenService::getAccessToken)
+        return tokenService.getAccessToken()
                 .flatMapMany(token ->
                         webClient.get()
                                 .uri(uriBuilder -> uriBuilder
