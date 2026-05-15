@@ -2,6 +2,7 @@ package no.hauglum.ship_o_hoi;
 
 import no.hauglum.ship_o_hoi.model.DestinationProfile;
 import no.hauglum.ship_o_hoi.model.Position;
+import no.hauglum.ship_o_hoi.service.AisStreamService;
 import no.hauglum.ship_o_hoi.service.BarentsWatchAISService;
 import no.hauglum.ship_o_hoi.service.ShipAlertService;
 import no.hauglum.ship_o_hoi.model.AISShip;
@@ -26,11 +27,13 @@ public class HarborWatcher {
     private final Map<String, Instant> lastAlert = new ConcurrentHashMap<>();
 
     private final BarentsWatchAISService aisService;
+    private final AisStreamService aisStreamService;
     private final ShipAlertService shipAlertService;
     private final Logger log = LoggerFactory.getLogger(HarborWatcher.class);
 
-    public HarborWatcher(BarentsWatchAISService aisService, ShipAlertService shipAlertService) {
+    public HarborWatcher(BarentsWatchAISService aisService, AisStreamService aisStreamService, ShipAlertService shipAlertService) {
         this.aisService = aisService;
+        this.aisStreamService = aisStreamService;
         this.shipAlertService = shipAlertService;
     }
 
@@ -38,7 +41,9 @@ public class HarborWatcher {
     @EventListener(ApplicationReadyEvent.class)
     public void startWatching() {
         //TODO: Make it possible to configure which destination to watch for, maybe via application properties or environment variable or UI
-        DestinationProfile destinationProfile = ENGEBØ;
+       DestinationProfile destinationProfile = ENGEBØ;
+       // DestinationProfile destinationProfile = DURBAN;
+//        DestinationProfile destinationProfile = FUZHOU;
 //        DestinationProfile destinationProfile = HAUGESUND;
         log.info("🔎 Starting HarborWatcher for destination: {}", destinationProfile.name());
 
@@ -47,18 +52,35 @@ public class HarborWatcher {
                 .window(Duration.ofMinutes(1))
                 .flatMap(Flux::count)
                 .subscribe(count ->
-                        log.info("📊 AIS meldinger siste minutt: {}", count)
+                        log.info("📊 AIS meldinger siste minutt (Barents Watch): {}", count)
                 );
 
         ships
-                .doOnSubscribe(s -> log.info("🚢 AIS stream started"))
-                .doOnError(e -> log.error("❌ AIS stream failed", e))
+                .doOnSubscribe(s -> log.info("🚢 Barents Watch stream started"))
+                .doOnError(e -> log.error("❌ Barents Watch stream failed", e))
                 .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(15))
                         .doBeforeRetry(r ->
-                                log.warn("🔁 Restarting AIS stream after error: {}",
+                                log.warn("🔁 Restarting Barents Watch stream after error: {}",
                                         r.failure().getMessage())
                         ))
                 .subscribe(ship -> handleShip(ship, destinationProfile));
+
+        Flux<AISShip> globalShips = aisStreamService.streamShips()
+                .doOnSubscribe(s -> log.info("🌍 AISStream global stream started"))
+                .doOnError(e -> log.error("❌ AISStream stream failed", e))
+                .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(15))
+                        .doBeforeRetry(r ->
+                                log.warn("🔁 Restarting AISStream after error: {}",
+                                        r.failure().getMessage())
+                        ))
+                .share();
+
+        globalShips
+                .window(Duration.ofMinutes(1))
+                .flatMap(Flux::count)
+                .subscribe(count -> log.info("📊 AISStream meldinger siste minutt: {}", count));
+
+        globalShips.subscribe(ship -> handleShip(ship, destinationProfile));
     }
 
     private static final DestinationProfile ENGEBØ =
@@ -88,6 +110,34 @@ public class HarborWatcher {
                             "Hauges"
                     ),
                     new Position(59.4138, 5.2677)
+            );
+
+
+    private static final DestinationProfile FUZHOU =
+            new DestinationProfile(
+                    "Fuzhou",
+                    Set.of(
+                            "fuzhou",
+                            "cnfuz",
+                            "cn fuz",
+                            "cn fzg",
+                            "mawei",
+                            "foochow"
+                    ),
+                    new Position(26.015, 119.480)
+            );
+
+
+    private static final DestinationProfile DURBAN =
+            new DestinationProfile(
+                    "Durban",
+                    Set.of(
+                            "durban",
+                            "za dur",
+                            "zadur",
+                            "dbn"
+                    ),
+                    new Position(-29.8622, 31.0297)
             );
 
 

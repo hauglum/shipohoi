@@ -15,7 +15,9 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        format_sql: true
+        format_sql: true 
+aisstream:
+  api-key: ${aisstream.api-key}
 barentswatch:
   auth:
     token-url: https://id.barentswatch.no/connect/token

@@ -16,10 +16,10 @@ class BarentsWatchTokenServiceIT {
     @Test
     void shouldFetchAndCacheAccessToken() {
         // First call – should hit BarentsWatch
-        String token1 = tokenService.getAccessToken();
+        String token1 = tokenService.getAccessToken().block();
 
         // Second call – should use cache
-        String token2 = tokenService.getAccessToken();
+        String token2 = tokenService.getAccessToken().block();
 
         assertThat(token1).isNotNull();
         assertThat(token1).isNotBlank();
