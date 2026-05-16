@@ -1,0 +1,18 @@
+[Unit]
+Description=Ship O'Hoi - AIS Ship Alert Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ship-o-hoi
+ExecStart=/usr/bin/java -jar /opt/ship-o-hoi/ship-o-hoi-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod --server.port=8080
+ExecStop=/bin/kill -15 $MAINPID
+Restart=on-failure
+RestartSec=10
+
+StandardOutput=append:/var/log/ship-o-hoi.log
+StandardError=append:/var/log/ship-o-hoi.log
+
+[Install]
+WantedBy=multi-user.target
