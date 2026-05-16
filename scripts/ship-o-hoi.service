@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/ship-o-hoi
-ExecStart=/usr/bin/java -jar /opt/ship-o-hoi/ship-o-hoi-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod --server.port=8080
+ExecStart=/usr/bin/java -jar /opt/ship-o-hoi/ship-o-hoi.jar --spring.profiles.active=prod --server.port=8080
 ExecStop=/bin/kill -15 $MAINPID
 Restart=on-failure
 RestartSec=10

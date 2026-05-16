@@ -81,6 +81,7 @@
 	</repositories>
 
 	<build>
+		<finalName>ship-o-hoi</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
