@@ -1,96 +1,66 @@
 package no.hauglum.ship_o_hoi.service;
 
-import jakarta.activation.DataSource;
 import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.util.ByteArrayDataSource;
 import no.hauglum.ship_o_hoi.model.AISShip;
 import no.hauglum.ship_o_hoi.model.Position;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService implements ShipAlertService {
+
     private final JavaMailSender mailSender;
-    private final MapService mapService;
     private final String to;
-    private final String mapboxAccessToken;
     private final Logger log = LoggerFactory.getLogger(EmailService.class);
 
-    public EmailService(JavaMailSender mailSender,
-                        MapService mapService,
-                        @Value("${email.to}") String to,
-                        @Value("${mapbox.access-token}") String mapboxAccessToken) {
+    public EmailService(JavaMailSender mailSender, @Value("${email.to}") String to) {
         this.mailSender = mailSender;
-        this.mapService = mapService;
         this.to = to;
-        this.mapboxAccessToken = mapboxAccessToken;
     }
 
     @Override
     public void sendShipAlert(AISShip ship, String destination, Position destinationPosition) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            String marineTrafficUrl = "https://www.marinetraffic.com/en/ais/details/ships/mmsi:" + ship.mmsi();
+            String osmUrl = String.format(
+                    "https://www.openstreetmap.org/?mlat=%.6f&mlon=%.6f&zoom=8",
+                    ship.latitude(), ship.longitude()
+            );
 
-            helper.setTo(to.split(","));
-            helper.setSubject("🚢 Ship Alert: " + ship.name() + " heading to " + destination);
-
-            String mapUrl = null;
-            if (destinationPosition != null && ship.latitude() != null && ship.longitude() != null) {
-                mapUrl = mapService.generateMapUrl(
-                        destinationPosition,
-                        new Position(ship.latitude(), ship.longitude())
-                );
-            }
-
-            String body = String.format(
-                    """
-                    Ship: %s
-                    MMSI: %s
-                    Destination: %s
-                    Speed: %s knots
-                    Heading: %s degrees
-                    Position: (%.4f, %.4f)
-                    
-                    Map URL: %s
+            String body = String.format("""
+                    <html><body style="font-family: sans-serif;">
+                    <h3>🚢 %s is heading to %s</h3>
+                    <table cellpadding="4">
+                      <tr><td><b>MMSI</b></td><td>%s</td></tr>
+                      <tr><td><b>Destination</b></td><td>%s</td></tr>
+                      <tr><td><b>Speed</b></td><td>%s knots</td></tr>
+                      <tr><td><b>Heading</b></td><td>%s°</td></tr>
+                      <tr><td><b>Position</b></td><td>%.4f, %.4f</td></tr>
+                    </table>
+                    <br>
+                    <a href="%s">🔍 Track on MarineTraffic</a><br><br>
+                    <a href="%s">🗺️ View on OpenStreetMap</a>
+                    </body></html>
                     """,
-                    ship.name(),
+                    ship.name(), destination,
                     ship.mmsi(),
                     ship.destination(),
                     ship.speed() != null ? ship.speed() : "N/A",
                     ship.heading() != null ? ship.heading() : "N/A",
-                    ship.latitude() != null ? ship.latitude() : 0.0,
-                    ship.longitude() != null ? ship.longitude() : 0.0,
-                    mapUrl != null ? mapUrl : "N/A"
+                    ship.latitude(), ship.longitude(),
+                    marineTrafficUrl,
+                    osmUrl
             );
-            helper.setText(body);
 
-            if (destinationPosition != null && ship.latitude() != null && ship.longitude() != null) {
-                try {
-                    int heading = ship.heading() != null ? ship.heading() : 0;
-                    double speed = ship.speed() != null ? ship.speed() : 0.0;
-                    byte[] mapImage = mapService.generateStaticMapImage(
-                            destinationPosition,
-                            new Position(ship.latitude(), ship.longitude()),
-                            heading,
-                            speed,
-                            mapboxAccessToken
-                    );
-
-                    if (mapImage != null) {
-                        DataSource dataSource = new ByteArrayDataSource(mapImage, "image/png");
-                        helper.addAttachment("ship_map.png", dataSource);
-                        log.info("🗺️ Attached map image to email");
-                    }
-                } catch (Exception e) {
-                    log.warn("Failed to generate map image, sending email without attachment: {}", e.getMessage());
-                }
-            }
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setTo(to.split(",\\s*"));
+            helper.setSubject("🚢 Ship Alert: " + ship.name() + " → " + destination);
+            helper.setText(body, true);
 
             mailSender.send(message);
             log.info("📧 Email alert sent for ship {} heading to {}", ship.name(), destination);

@@ -62,23 +62,7 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>com.mapbox.mapboxsdk</groupId>
-			<artifactId>mapbox-sdk-services</artifactId>
-			<version>7.10.0</version>
-		</dependency>
 	</dependencies>
-
-	<repositories>
-		<repository>
-			<id>mapbox-public</id>
-			<url>https://api.mapbox.com/downloads/v2/releases/maven</url>
-		</repository>
-		<repository>
-			<id>google</id>
-			<url>https://maven.google.com</url>
-		</repository>
-	</repositories>
 
 	<build>
 		<finalName>ship-o-hoi</finalName>

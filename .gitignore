@@ -36,3 +36,4 @@ build/
 /mvnw
 /.gitattributes
 /mvnw.cmd
+/.claude/settings.local.json
