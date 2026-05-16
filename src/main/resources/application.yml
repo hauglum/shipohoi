@@ -18,6 +18,56 @@ spring:
         format_sql: true 
 aisstream:
   api-key: ${aisstream.api-key}
+destinations:
+  active: Engebø
+  profiles:
+    - name: Engebø
+      aliases:
+        - engebo
+        - engebo hamn
+        - engebo kai
+        - engebohavn
+        - engebo havn
+      latitude: 61.487982
+      longitude: 5.442754
+    - name: Haugesund
+      aliases:
+        - haugesund
+        - haugesund hamn
+        - haugesund kai
+        - haugesundhavn
+        - haugesund havn
+        - hauges
+      latitude: 59.4138
+      longitude: 5.2677
+    - name: Fuzhou
+      aliases:
+        - fuzhou
+        - cnfuz
+        - cn fuz
+        - cn fzg
+        - mawei
+        - foochow
+      latitude: 26.015
+      longitude: 119.480
+    - name: Durban
+      aliases:
+        - durban
+        - za dur
+        - zadur
+        - dbn
+      latitude: -29.8622
+      longitude: 31.0297
+    - name: Barentsburg
+      aliases:
+        - barentsburg
+        - barentsburg hamn
+        - barentsburg kai
+        - barentsburghavn
+        - barentsburg havn
+        - barentsb
+      latitude: 78.0667
+      longitude: 14.2333
 barentswatch:
   auth:
     token-url: https://id.barentswatch.no/connect/token

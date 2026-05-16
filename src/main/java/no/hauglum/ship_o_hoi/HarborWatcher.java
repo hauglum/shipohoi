@@ -1,11 +1,12 @@
 package no.hauglum.ship_o_hoi;
 
+import no.hauglum.ship_o_hoi.config.DestinationProperties;
+import no.hauglum.ship_o_hoi.model.AISShip;
 import no.hauglum.ship_o_hoi.model.DestinationProfile;
-import no.hauglum.ship_o_hoi.model.Position;
 import no.hauglum.ship_o_hoi.service.AisStreamService;
 import no.hauglum.ship_o_hoi.service.BarentsWatchAISService;
 import no.hauglum.ship_o_hoi.service.ShipAlertService;
-import no.hauglum.ship_o_hoi.model.AISShip;
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,6 @@ import reactor.util.retry.Retry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 
@@ -29,22 +29,21 @@ public class HarborWatcher {
     private final BarentsWatchAISService aisService;
     private final AisStreamService aisStreamService;
     private final ShipAlertService shipAlertService;
+    private final DestinationProperties destinationProperties;
     private final Logger log = LoggerFactory.getLogger(HarborWatcher.class);
 
-    public HarborWatcher(BarentsWatchAISService aisService, AisStreamService aisStreamService, ShipAlertService shipAlertService) {
+    public HarborWatcher(BarentsWatchAISService aisService, AisStreamService aisStreamService,
+                         ShipAlertService shipAlertService, DestinationProperties destinationProperties) {
         this.aisService = aisService;
         this.aisStreamService = aisStreamService;
         this.shipAlertService = shipAlertService;
+        this.destinationProperties = destinationProperties;
     }
 
 
     @EventListener(ApplicationReadyEvent.class)
     public void startWatching() {
-        //TODO: Make it possible to configure which destination to watch for, maybe via application properties or environment variable or UI
-       DestinationProfile destinationProfile = ENGEBØ;
-       // DestinationProfile destinationProfile = DURBAN;
-//        DestinationProfile destinationProfile = FUZHOU;
-//        DestinationProfile destinationProfile = HAUGESUND;
+        DestinationProfile destinationProfile = destinationProperties.resolveActive();
         log.info("🔎 Starting HarborWatcher for destination: {}", destinationProfile.name());
 
         Flux<AISShip> ships = aisService.streamShips().share();
@@ -82,88 +81,6 @@ public class HarborWatcher {
 
         globalShips.subscribe(ship -> handleShip(ship, destinationProfile));
     }
-
-    private static final DestinationProfile ENGEBØ =
-            new DestinationProfile(
-                    "Engebø",
-                    Set.of(
-                            "engebo",
-                            "engebo hamn",
-                            "engebo kai",
-                            "engebohavn",
-                            "engebo havn",
-                            "engeb"
-                    ),
-                    new Position(61.487982, 5.442754)
-            );
-
-
-    private static final DestinationProfile HAUGESUND =
-            new DestinationProfile(
-                    "Haugesund",
-                    Set.of(
-                            "Haugesund",
-                            "Haugesund hamn",
-                            "Haugesund kai",
-                            "Haugesundhavn",
-                            "Haugesund havn",
-                            "Hauges"
-                    ),
-                    new Position(59.4138, 5.2677)
-            );
-
-
-    private static final DestinationProfile FUZHOU =
-            new DestinationProfile(
-                    "Fuzhou",
-                    Set.of(
-                            "fuzhou",
-                            "cnfuz",
-                            "cn fuz",
-                            "cn fzg",
-                            "mawei",
-                            "foochow"
-                    ),
-                    new Position(26.015, 119.480)
-            );
-
-
-    private static final DestinationProfile DURBAN =
-            new DestinationProfile(
-                    "Durban",
-                    Set.of(
-                            "durban",
-                            "za dur",
-                            "zadur",
-                            "dbn"
-                    ),
-                    new Position(-29.8622, 31.0297)
-            );
-
-
-    private static final DestinationProfile BARENTSBURG =
-            new DestinationProfile(
-                    "Barentsburg",
-                    Set.of(
-                            "Barentsburg",
-                            "Barentsburg hamn",
-                            "Barentsburg kai",
-                            "Barentsburghavn",
-                            "Barentsburg havn",
-                            "Barentsb"
-                    ),
-                    new Position(78.0667, 14.2333)
-            );
-
-
-    private static final DestinationProfile ASKEPOTT =
-            new DestinationProfile(
-                    "Askepott",
-                    Set.of(
-                            "Askepott"
-                    ),
-                    null
-            );
 
     private void handleShip(AISShip ship, DestinationProfile destination) {
 
@@ -203,9 +120,9 @@ public class HarborWatcher {
         }
 
         String dest = normalize(ship.destination());
-//        log.info("Normalized destination: '{}'", dest);
         for (String alias : profile.aliases()) {
-            if (dest.contains(normalize(alias) )) {
+            String pattern = ".*\\b" + normalize(alias) + "\\b.*";
+            if (dest.matches(pattern)) {
                 return true;
             }
         }
