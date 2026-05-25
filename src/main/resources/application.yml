@@ -15,6 +15,7 @@ spring:
 tracking:
   mmsi-watchlist:
     - "304011027"  # THESEUS - General Cargo, IMO 9199256
+    - "314551000"  # WILSON HERON - General Cargo, IMO 9116022
 
 aisstream:
   api-key: ${aisstream.api-key}
