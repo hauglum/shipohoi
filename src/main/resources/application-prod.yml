@@ -1,6 +1,8 @@
 spring:
   config:
     import: file:/opt/ship-o-hoi/application-secrets.yml
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=ship_o_hoi;encrypt=false;trustServerCertificate=true
   mail:
     host: ${email.host}
     port: ${email.port}

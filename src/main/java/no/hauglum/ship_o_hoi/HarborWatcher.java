@@ -6,6 +6,7 @@ import no.hauglum.ship_o_hoi.model.DestinationProfile;
 import no.hauglum.ship_o_hoi.service.AisStreamService;
 import no.hauglum.ship_o_hoi.service.BarentsWatchAISService;
 import no.hauglum.ship_o_hoi.service.ShipAlertService;
+import no.hauglum.ship_o_hoi.service.TrackRecorder;
 
 
 import org.slf4j.Logger;
@@ -30,14 +31,17 @@ public class HarborWatcher {
     private final AisStreamService aisStreamService;
     private final ShipAlertService shipAlertService;
     private final DestinationProperties destinationProperties;
+    private final TrackRecorder trackRecorder;
     private final Logger log = LoggerFactory.getLogger(HarborWatcher.class);
 
     public HarborWatcher(BarentsWatchAISService aisService, AisStreamService aisStreamService,
-                         ShipAlertService shipAlertService, DestinationProperties destinationProperties) {
+                         ShipAlertService shipAlertService, DestinationProperties destinationProperties,
+                         TrackRecorder trackRecorder) {
         this.aisService = aisService;
         this.aisStreamService = aisStreamService;
         this.shipAlertService = shipAlertService;
         this.destinationProperties = destinationProperties;
+        this.trackRecorder = trackRecorder;
     }
 
 
@@ -89,7 +93,13 @@ public class HarborWatcher {
             return;
         }
 
-        if (matchesDestination(ship, destination) && shouldAlert(ship)) {
+        boolean destinationMatch = matchesDestination(ship, destination);
+
+        if (destinationMatch || trackRecorder.isWatchlisted(ship.mmsi())) {
+            trackRecorder.record(ship);
+        }
+
+        if (destinationMatch && shouldAlert(ship)) {
             log.info(
                     "🚨 Skip mot {}: name={}, mmsi={}, sog={}, cog={}, pos=({}, {})",
                     destination.name(),

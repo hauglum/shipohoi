@@ -36,7 +36,7 @@ class HarborWatcherMatchTest {
         AISShip ship = new AISShip("123", "TEST", 0.0, 0.0, null, null, null, destination, null);
         Method method = HarborWatcher.class.getDeclaredMethod("matchesDestination", AISShip.class, DestinationProfile.class);
         method.setAccessible(true);
-        HarborWatcher watcher = new HarborWatcher(null, null, null, null);
+        HarborWatcher watcher = new HarborWatcher(null, null, null, null, null);
         return (boolean) method.invoke(watcher, ship, activeProfile);
     }
 

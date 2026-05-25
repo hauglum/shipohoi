@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ship Tracks</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        body { margin: 0; font-family: sans-serif; }
+        #map { height: 100vh; }
+        #status { position: absolute; top: 10px; right: 10px; z-index: 1000;
+                  background: white; padding: 6px 12px; border-radius: 4px;
+                  box-shadow: 0 1px 4px rgba(0,0,0,0.3); font-size: 13px; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="status">Loading…</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const map = L.map('map').setView([62, 8], 5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const colors = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#a65628'];
+    let colorIndex = 0;
+    const layers = {};
+
+    async function loadTracks() {
+        const status = document.getElementById('status');
+        try {
+            const mmsis = await fetch('/api/tracks').then(r => r.json());
+            status.textContent = `Tracking ${mmsis.length} ship(s)`;
+
+            for (const mmsi of mmsis) {
+                const geojson = await fetch(`/api/tracks/${mmsi}`).then(r => r.json());
+                const feature = geojson.features[0];
+                const coords = feature.geometry.coordinates;
+
+                if (coords.length < 2) continue;
+
+                const latLngs = coords.map(c => [c[1], c[0]]);
+                const name = feature.properties.name;
+                const color = colors[colorIndex++ % colors.length];
+
+                if (layers[mmsi]) map.removeLayer(layers[mmsi]);
+
+                const line = L.polyline(latLngs, { color, weight: 3, opacity: 0.8 })
+                    .bindPopup(`<b>${name}</b><br>MMSI: ${mmsi}<br>Points: ${feature.properties.pointCount}`)
+                    .addTo(map);
+
+                L.circleMarker(latLngs[latLngs.length - 1], { radius: 6, color, fillOpacity: 1 })
+                    .bindPopup(`<b>${name}</b> (latest position)`)
+                    .addTo(map);
+
+                layers[mmsi] = line;
+            }
+        } catch (e) {
+            status.textContent = 'Error loading tracks';
+            console.error(e);
+        }
+    }
+
+    loadTracks();
+    setInterval(loadTracks, 60000);
+</script>
+</body>
+</html>
