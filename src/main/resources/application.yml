@@ -8,10 +8,13 @@ spring:
     password: ${datasource.password}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 1
 tracking:
   mmsi-watchlist:
     - "304011027"  # THESEUS - General Cargo, IMO 9199256

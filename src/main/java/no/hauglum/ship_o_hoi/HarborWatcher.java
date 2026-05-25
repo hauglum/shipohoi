@@ -95,6 +95,9 @@ public class HarborWatcher {
 
         boolean destinationMatch = matchesDestination(ship, destination);
 
+        if (destinationMatch) {
+            trackRecorder.addToWatchlistIfNew(ship);
+        }
         if (destinationMatch || trackRecorder.isWatchlisted(ship.mmsi())) {
             trackRecorder.record(ship);
         }
