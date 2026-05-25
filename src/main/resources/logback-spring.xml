@@ -1,0 +1,26 @@
+<configuration>
+	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+		</encoder>
+	</appender>
+
+	<appender name="GELF" class="de.siegmar.logbackgelf.GelfTcpAppender">
+		<graylogHost>localhost</graylogHost>
+		<graylogPort>12201</graylogPort>
+		<layout class="de.siegmar.logbackgelf.GelfLayout">
+			<includeRawMessage>false</includeRawMessage>
+			<includeMarker>true</includeMarker>
+			<includeMdcData>true</includeMdcData>
+			<includeCallerData>false</includeCallerData>
+			<includeLevelName>true</includeLevelName>
+		</layout>
+	</appender>
+
+	<root level="INFO">
+		<appender-ref ref="STDOUT" />
+		<springProfile name="prod">
+			<appender-ref ref="GELF" />
+		</springProfile>
+	</root>
+</configuration>
