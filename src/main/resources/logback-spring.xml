@@ -18,10 +18,16 @@
 		</encoder>
 	</appender>
 
-	<root level="INFO">
-		<appender-ref ref="STDOUT" />
-		<springProfile name="prod">
+	<springProfile name="!prod">
+		<root level="INFO">
+			<appender-ref ref="STDOUT" />
+		</root>
+	</springProfile>
+
+	<springProfile name="prod">
+		<root level="INFO">
+			<appender-ref ref="STDOUT" />
 			<appender-ref ref="GELF" />
-		</springProfile>
-	</root>
+		</root>
+	</springProfile>
 </configuration>
