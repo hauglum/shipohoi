@@ -8,14 +8,14 @@
 	<appender name="GELF" class="de.siegmar.logbackgelf.GelfTcpAppender">
 		<graylogHost>localhost</graylogHost>
 		<graylogPort>12201</graylogPort>
-		<layout class="de.siegmar.logbackgelf.GelfLayout">
+		<encoder class="de.siegmar.logbackgelf.GelfEncoder">
 			<includeRawMessage>false</includeRawMessage>
 			<includeMarker>true</includeMarker>
 			<includeMdcData>true</includeMdcData>
 			<includeCallerData>false</includeCallerData>
 			<includeLevelName>true</includeLevelName>
-			<additionalStaticField>application:ship-o-hoi</additionalStaticField>
-		</layout>
+			<staticField>application:ship-o-hoi</staticField>
+		</encoder>
 	</appender>
 
 	<root level="INFO">
