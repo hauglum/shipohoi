@@ -47,6 +47,7 @@ class HarborWatcherMatchTest {
         assertThat(matches("ENGEBO KAI")).isTrue();
         assertThat(matches("Engebø")).isTrue();
         assertThat(matches("ENGEBØ RG FØRDE")).isTrue();
+        assertThat(matches("NOFDE")).isTrue();
     }
 
     @Test
