@@ -30,7 +30,8 @@ public class TrackController {
                 .map(p -> List.of(p.getLongitude(), p.getLatitude()))
                 .toList();
 
-        String shipName = positions.isEmpty() ? mmsi : positions.get(positions.size() - 1).getShipName();
+        ShipPosition latest = positions.isEmpty() ? null : positions.get(positions.size() - 1);
+        String shipName = latest == null ? mmsi : latest.getShipName();
 
         Map<String, Object> geometry = new LinkedHashMap<>();
         geometry.put("type", "LineString");
@@ -40,6 +41,8 @@ public class TrackController {
         properties.put("mmsi", mmsi);
         properties.put("name", shipName);
         properties.put("pointCount", positions.size());
+        properties.put("speed", latest == null ? null : latest.getSpeed());
+        properties.put("course", latest == null ? null : latest.getCourse());
 
         Map<String, Object> feature = new LinkedHashMap<>();
         feature.put("type", "Feature");

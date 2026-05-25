@@ -29,6 +29,18 @@
     let colorIndex = 0;
     const layers = {};
 
+    function projectPoint(lat, lon, speedKnots, courseDeg) {
+        if (speedKnots == null || courseDeg == null || speedKnots < 0.5) return null;
+        const R = 6371000;
+        const d = speedKnots * 1852;
+        const θ = courseDeg * Math.PI / 180;
+        const φ1 = lat * Math.PI / 180;
+        const λ1 = lon * Math.PI / 180;
+        const φ2 = Math.asin(Math.sin(φ1) * Math.cos(d / R) + Math.cos(φ1) * Math.sin(d / R) * Math.cos(θ));
+        const λ2 = λ1 + Math.atan2(Math.sin(θ) * Math.sin(d / R) * Math.cos(φ1), Math.cos(d / R) - Math.sin(φ1) * Math.sin(φ2));
+        return [φ2 * 180 / Math.PI, λ2 * 180 / Math.PI];
+    }
+
     async function loadTracks() {
         const status = document.getElementById('status');
         try {
@@ -43,18 +55,29 @@
                 if (coords.length < 2) continue;
 
                 const latLngs = coords.map(c => [c[1], c[0]]);
-                const name = feature.properties.name;
+                const { name, pointCount, speed, course } = feature.properties;
                 const color = colors[colorIndex++ % colors.length];
 
                 if (layers[mmsi]) map.removeLayer(layers[mmsi]);
 
+                const lastPos = latLngs[latLngs.length - 1];
+                const speedLabel = speed != null ? `${speed.toFixed(1)} kn` : 'n/a';
+                const courseLabel = course != null ? `${Math.round(course)}°` : 'n/a';
+
                 const line = L.polyline(latLngs, { color, weight: 3, opacity: 0.8 })
-                    .bindPopup(`<b>${name}</b><br>MMSI: ${mmsi}<br>Points: ${feature.properties.pointCount}`)
+                    .bindPopup(`<b>${name}</b><br>MMSI: ${mmsi}<br>Points: ${pointCount}`)
                     .addTo(map);
 
-                L.circleMarker(latLngs[latLngs.length - 1], { radius: 6, color, fillOpacity: 1 })
-                    .bindPopup(`<b>${name}</b> (latest position)`)
+                L.circleMarker(lastPos, { radius: 6, color, fillOpacity: 1 })
+                    .bindPopup(`<b>${name}</b><br>Speed: ${speedLabel}<br>Course: ${courseLabel}`)
                     .addTo(map);
+
+                const projected = projectPoint(lastPos[0], lastPos[1], speed, course);
+                if (projected) {
+                    L.polyline([lastPos, projected], { color, weight: 2, opacity: 0.6, dashArray: '6 4' })
+                        .bindPopup(`<b>${name}</b><br>Projected position in 1 hour at ${speedLabel}`)
+                        .addTo(map);
+                }
 
                 layers[mmsi] = line;
             }
