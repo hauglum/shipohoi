@@ -50,7 +50,17 @@ public class HarborWatcher {
         DestinationProfile destinationProfile = destinationProperties.resolveActive();
         log.info("🔎 Starting HarborWatcher for destination: {}", destinationProfile.name());
 
-        Flux<AISShip> ships = aisService.streamShips().share();
+        Flux<AISShip> ships = aisService.streamShips()
+                .doOnSubscribe(s -> log.info("🚢 Barents Watch stream started"))
+                .doOnError(e -> log.error("❌ Barents Watch stream failed", e))
+                .repeat()
+                .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(15))
+                        .doBeforeRetry(r ->
+                                log.warn("🔁 Restarting Barents Watch stream after error: {}",
+                                        r.failure().getMessage())
+                        ))
+                .share();
+
         ships
                 .window(Duration.ofMinutes(1))
                 .flatMap(Flux::count)
@@ -58,15 +68,7 @@ public class HarborWatcher {
                         log.info("📊 AIS meldinger siste minutt (Barents Watch): {}", count)
                 );
 
-        ships
-                .doOnSubscribe(s -> log.info("🚢 Barents Watch stream started"))
-                .doOnError(e -> log.error("❌ Barents Watch stream failed", e))
-                .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(15))
-                        .doBeforeRetry(r ->
-                                log.warn("🔁 Restarting Barents Watch stream after error: {}",
-                                        r.failure().getMessage())
-                        ))
-                .subscribe(ship -> handleShip(ship, destinationProfile));
+        ships.subscribe(ship -> handleShip(ship, destinationProfile));
 
         Flux<AISShip> globalShips = aisStreamService.streamShips()
                 .doOnSubscribe(s -> log.info("🌍 AISStream global stream started"))

@@ -1,6 +1,5 @@
 package no.hauglum.ship_o_hoi.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import no.hauglum.ship_o_hoi.auth.BarentsWatchTokenService;
 import no.hauglum.ship_o_hoi.model.AISShip;
 import no.hauglum.ship_o_hoi.parser.GeoJsonAISParser;
@@ -12,7 +11,6 @@ import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import org.springframework.core.io.buffer.DataBuffer;
 
 
@@ -20,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 
 @Service
 public class BarentsWatchAISService {
+
+    private static final Logger log = LoggerFactory.getLogger(BarentsWatchAISService.class);
 
     private final WebClient webClient;
     private final BarentsWatchTokenService tokenService;
@@ -52,8 +52,7 @@ public class BarentsWatchAISService {
                 )
                 .transform(this::decodeLines)
                 .map(parser::parseLine)
-//                .doOnNext(ship -> System.out.println("🚢 " + ship))
-                .doOnError(e -> System.err.println("❌ " + e));
+                .doOnError(e -> log.error("❌ Barents Watch ship stream error", e));
     }
 
     private Flux<String> decodeLines(Flux<DataBuffer> buffers) {
