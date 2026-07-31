@@ -4,6 +4,7 @@ import no.hauglum.ship_o_hoi.config.DestinationProperties;
 import no.hauglum.ship_o_hoi.model.AISShip;
 import no.hauglum.ship_o_hoi.model.DestinationProfile;
 import no.hauglum.ship_o_hoi.service.AisStreamService;
+import no.hauglum.ship_o_hoi.service.AlertCooldown;
 import no.hauglum.ship_o_hoi.service.BarentsWatchAISService;
 import no.hauglum.ship_o_hoi.service.ShipAlertService;
 import no.hauglum.ship_o_hoi.service.TrackRecorder;
@@ -17,15 +18,16 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.util.retry.Retry;
 
+import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 @Component
 public class HarborWatcher {
-    private final Map<String, Instant> lastAlert = new ConcurrentHashMap<>();
+    private static final Duration ALERT_COOLDOWN = Duration.ofHours(1);
+    private static final Duration STREAM_RESTART_DELAY = Duration.ofSeconds(15);
+
+    private final AlertCooldown alertCooldown = new AlertCooldown(Clock.systemUTC(), ALERT_COOLDOWN);
 
     private final BarentsWatchAISService aisService;
     private final AisStreamService aisStreamService;
@@ -53,8 +55,10 @@ public class HarborWatcher {
         Flux<AISShip> ships = aisService.streamShips()
                 .doOnSubscribe(s -> log.info("🚢 Barents Watch stream started"))
                 .doOnError(e -> log.error("❌ Barents Watch stream failed", e))
-                .repeat()
-                .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(15))
+                // Restart on clean completion, but pace it: an immediately-completing
+                // upstream (e.g. a non-2xx body) would otherwise resubscribe in a tight loop.
+                .repeatWhen(completed -> completed.delayElements(STREAM_RESTART_DELAY))
+                .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, STREAM_RESTART_DELAY)
                         .doBeforeRetry(r ->
                                 log.warn("🔁 Restarting Barents Watch stream after error: {}",
                                         r.failure().getMessage())
@@ -73,7 +77,7 @@ public class HarborWatcher {
         Flux<AISShip> globalShips = aisStreamService.streamShips()
                 .doOnSubscribe(s -> log.info("🌍 AISStream global stream started"))
                 .doOnError(e -> log.error("❌ AISStream stream failed", e))
-                .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(15))
+                .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, STREAM_RESTART_DELAY)
                         .doBeforeRetry(r ->
                                 log.warn("🔁 Restarting AISStream after error: {}",
                                         r.failure().getMessage())
@@ -104,9 +108,9 @@ public class HarborWatcher {
             trackRecorder.record(ship);
         }
 
-        if (destinationMatch && shouldAlert(ship)) {
+        if (destinationMatch && alertCooldown.shouldAlert(ship.mmsi())) {
             log.info(
-                    "🚨 Skip mot {}: name={}, mmsi={}, sog={}, cog={}, pos=({}, {})",
+                    "🚨 Skip mot {}: name={}, mmsi={}, sog={}, heading={}, pos=({}, {})",
                     destination.name(),
                     ship.name(),
                     ship.mmsi(),
@@ -117,16 +121,6 @@ public class HarborWatcher {
             );
             shipAlertService.sendShipAlert(ship, destination.name(), destination.position());
         }
-    }
-
-    private boolean shouldAlert(AISShip ship) {
-        return lastAlert.compute(ship.mmsi(), (mmsi, last) -> {
-            Instant now = Instant.now();
-            if (last == null || last.isBefore(now.minus(Duration.ofHours(1)))) {
-                return now;
-            }
-            return last;
-        }).equals(Instant.now());
     }
 
     private boolean matchesDestination(AISShip ship, DestinationProfile profile) {
