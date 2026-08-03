@@ -3,6 +3,7 @@ package no.hauglum.ship_o_hoi.service;
 import jakarta.annotation.PostConstruct;
 import no.hauglum.ship_o_hoi.config.TrackingProperties;
 import no.hauglum.ship_o_hoi.model.AISShip;
+import no.hauglum.ship_o_hoi.model.Position;
 import no.hauglum.ship_o_hoi.model.ShipPosition;
 import no.hauglum.ship_o_hoi.model.WatchedShip;
 import no.hauglum.ship_o_hoi.repository.ShipPositionRepository;
@@ -25,7 +26,7 @@ public class TrackRecorder {
     private final WatchedShipRepository watchedShipRepository;
     private final TrackingProperties trackingProperties;
     private final Logger log = LoggerFactory.getLogger(TrackRecorder.class);
-    private final Map<String, double[]> lastPosition = new ConcurrentHashMap<>();
+    private final Map<String, Position> lastPosition = new ConcurrentHashMap<>();
     private final Set<String> dbWatchlist = ConcurrentHashMap.newKeySet();
 
     public TrackRecorder(ShipPositionRepository repository,
@@ -57,12 +58,13 @@ public class TrackRecorder {
         if (ship.latitude() == null || ship.longitude() == null) {
             return;
         }
-        double[] last = lastPosition.get(ship.mmsi());
-        if (last != null && haversineMeters(last[0], last[1], ship.latitude(), ship.longitude()) < MIN_MOVE_METERS) {
+        Position position = new Position(ship.latitude(), ship.longitude());
+        Position last = lastPosition.get(ship.mmsi());
+        if (last != null && last.distanceMetersTo(position) < MIN_MOVE_METERS) {
             return;
         }
-        lastPosition.put(ship.mmsi(), new double[]{ship.latitude(), ship.longitude()});
-        ShipPosition position = new ShipPosition(
+        lastPosition.put(ship.mmsi(), position);
+        ShipPosition recorded = new ShipPosition(
                 ship.mmsi(),
                 ship.name(),
                 ship.latitude(),
@@ -71,17 +73,7 @@ public class TrackRecorder {
                 ship.course(),
                 Instant.now()
         );
-        repository.save(position);
+        repository.save(recorded);
         log.debug("Recorded position for {} ({})", ship.name(), ship.mmsi());
-    }
-
-    private double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
-        final double R = 6_371_000;
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLon = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 }

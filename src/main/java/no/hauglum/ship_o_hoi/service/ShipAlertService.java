@@ -5,4 +5,6 @@ import no.hauglum.ship_o_hoi.model.Position;
 
 public interface ShipAlertService {
     void sendShipAlert(AISShip ship, String destination, Position destinationPosition);
+
+    void sendArrivalAlert(AISShip ship, String destination);
 }
