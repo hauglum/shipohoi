@@ -46,9 +46,12 @@ public class BarentsWatchAISService {
                                 )
 
                                 .headers(h -> h.setBearerAuth(token))
-                                .exchangeToFlux(response ->
-                                        response.bodyToFlux(DataBuffer.class)
-                                )
+                                .exchangeToFlux(response -> {
+                                    if (!response.statusCode().is2xxSuccessful()) {
+                                        return response.createException().flatMapMany(Flux::error);
+                                    }
+                                    return response.bodyToFlux(DataBuffer.class);
+                                })
                 )
                 .transform(this::decodeLines)
                 .map(parser::parseLine)

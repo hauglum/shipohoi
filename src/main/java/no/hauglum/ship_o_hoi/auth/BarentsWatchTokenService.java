@@ -40,13 +40,14 @@ public class BarentsWatchTokenService {
     }
 
     public Mono<String> getAccessToken() {
-        if (cachedToken != null && !isExpired()) {
-            return Mono.just(cachedToken);
-        }
-
-        return refreshToken()
-                .subscribeOn(Schedulers.boundedElastic())
-                .cache();
+        // Deferred so the expiry check runs on every subscription — stream
+        // reconnects resubscribe this Mono rather than calling the method again.
+        return Mono.defer(() -> {
+            if (cachedToken != null && !isExpired()) {
+                return Mono.just(cachedToken);
+            }
+            return refreshToken().subscribeOn(Schedulers.boundedElastic());
+        });
     }
 
     private boolean isExpired() {

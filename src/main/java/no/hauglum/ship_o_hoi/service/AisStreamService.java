@@ -13,7 +13,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
-import java.util.Objects;
 
 @Service
 public class AisStreamService {
@@ -40,8 +39,8 @@ public class AisStreamService {
                     session.send(Mono.just(session.textMessage(subscribeMsg)))
                             .thenMany(session.receive()
                                     .map(WebSocketMessage::getPayloadAsText)
-                                    .map(parser::parseLine)
-                                    .filter(Objects::nonNull)
+                                    // mapNotNull: a plain map throws NPE on null before any filter runs
+                                    .mapNotNull(parser::parseLine)
                                     .doOnNext(sink::next))
                             .then()
             ).subscribe(

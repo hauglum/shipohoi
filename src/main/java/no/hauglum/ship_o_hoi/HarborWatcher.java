@@ -18,6 +18,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.util.retry.Retry;
+import reactor.util.retry.RetryBackoffSpec;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -27,6 +28,7 @@ import java.time.Duration;
 public class HarborWatcher {
     private static final Duration ALERT_COOLDOWN = Duration.ofHours(1);
     private static final Duration STREAM_RESTART_DELAY = Duration.ofSeconds(15);
+    private static final Duration STREAM_RESTART_MAX_DELAY = Duration.ofMinutes(5);
 
     private final AlertCooldown alertCooldown = new AlertCooldown(Clock.systemUTC(), ALERT_COOLDOWN);
     // A ship hovering on the edge of the harbour area must not mail an arrival on every crossing.
@@ -63,7 +65,7 @@ public class HarborWatcher {
                 // Restart on clean completion, but pace it: an immediately-completing
                 // upstream (e.g. a non-2xx body) would otherwise resubscribe in a tight loop.
                 .repeatWhen(completed -> completed.delayElements(STREAM_RESTART_DELAY))
-                .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, STREAM_RESTART_DELAY)
+                .retryWhen(streamRetry()
                         .doBeforeRetry(r ->
                                 log.warn("🔁 Restarting Barents Watch stream after error: {}",
                                         r.failure().getMessage())
@@ -82,7 +84,7 @@ public class HarborWatcher {
         Flux<AISShip> globalShips = aisStreamService.streamShips()
                 .doOnSubscribe(s -> log.info("🌍 AISStream global stream started"))
                 .doOnError(e -> log.error("❌ AISStream stream failed", e))
-                .retryWhen(Retry.fixedDelay(Long.MAX_VALUE, STREAM_RESTART_DELAY)
+                .retryWhen(streamRetry()
                         .doBeforeRetry(r ->
                                 log.warn("🔁 Restarting AISStream after error: {}",
                                         r.failure().getMessage())
@@ -95,6 +97,14 @@ public class HarborWatcher {
                 .subscribe(count -> log.info("📊 AISStream meldinger siste minutt: {}", count));
 
         globalShips.subscribe(ship -> handleShip(ship, destinationProfile));
+    }
+
+    // Backoff keeps a persistently failing upstream from being hammered ~4x/minute;
+    // transientErrors resets the backoff once the stream delivers data again.
+    private RetryBackoffSpec streamRetry() {
+        return Retry.backoff(Long.MAX_VALUE, STREAM_RESTART_DELAY)
+                .maxBackoff(STREAM_RESTART_MAX_DELAY)
+                .transientErrors(true);
     }
 
     private void handleShip(AISShip ship, DestinationProfile destination) {
