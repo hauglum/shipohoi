@@ -1,6 +1,7 @@
 package no.hauglum.ship_o_hoi.config;
 
 import no.hauglum.ship_o_hoi.model.DestinationProfile;
+import no.hauglum.ship_o_hoi.model.HarbourArea;
 import no.hauglum.ship_o_hoi.model.Position;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,8 @@ public class DestinationProperties {
 
     private String active;
     private List<Profile> profiles = new ArrayList<>();
+    private double harbourRadiusMeters;
+    private double berthedSpeedKnots;
 
     public DestinationProfile resolveActive() {
         return profiles.stream()
@@ -25,10 +28,23 @@ public class DestinationProperties {
                         "No destination profile configured for active: '" + active + "'"));
     }
 
+    public HarbourArea resolveActiveHarbour() {
+        Position centre = resolveActive().position();
+        if (centre == null) {
+            throw new IllegalStateException(
+                    "Destination profile '" + active + "' has no coordinates, so no harbour can be defined");
+        }
+        return new HarbourArea(centre, harbourRadiusMeters, berthedSpeedKnots);
+    }
+
     public String getActive() { return active; }
     public void setActive(String active) { this.active = active; }
     public List<Profile> getProfiles() { return profiles; }
     public void setProfiles(List<Profile> profiles) { this.profiles = profiles; }
+    public double getHarbourRadiusMeters() { return harbourRadiusMeters; }
+    public void setHarbourRadiusMeters(double harbourRadiusMeters) { this.harbourRadiusMeters = harbourRadiusMeters; }
+    public double getBerthedSpeedKnots() { return berthedSpeedKnots; }
+    public void setBerthedSpeedKnots(double berthedSpeedKnots) { this.berthedSpeedKnots = berthedSpeedKnots; }
 
     public static class Profile {
         private String name;

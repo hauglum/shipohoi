@@ -24,6 +24,9 @@ aisstream:
   api-key: ${aisstream.api-key}
 destinations:
   active: Engebø
+  # A ship counts as arrived when it is this close to the destination and no longer making way.
+  harbour-radius-meters: 1000
+  berthed-speed-knots: 0.5
   profiles:
     - name: Engebø
       aliases:

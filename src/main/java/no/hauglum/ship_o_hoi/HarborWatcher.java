@@ -6,6 +6,7 @@ import no.hauglum.ship_o_hoi.model.DestinationProfile;
 import no.hauglum.ship_o_hoi.service.AisStreamService;
 import no.hauglum.ship_o_hoi.service.AlertCooldown;
 import no.hauglum.ship_o_hoi.service.BarentsWatchAISService;
+import no.hauglum.ship_o_hoi.service.HarbourPresence;
 import no.hauglum.ship_o_hoi.service.ShipAlertService;
 import no.hauglum.ship_o_hoi.service.TrackRecorder;
 
@@ -28,22 +29,26 @@ public class HarborWatcher {
     private static final Duration STREAM_RESTART_DELAY = Duration.ofSeconds(15);
 
     private final AlertCooldown alertCooldown = new AlertCooldown(Clock.systemUTC(), ALERT_COOLDOWN);
+    // A ship hovering on the edge of the harbour area must not mail an arrival on every crossing.
+    private final AlertCooldown arrivalCooldown = new AlertCooldown(Clock.systemUTC(), ALERT_COOLDOWN);
 
     private final BarentsWatchAISService aisService;
     private final AisStreamService aisStreamService;
     private final ShipAlertService shipAlertService;
     private final DestinationProperties destinationProperties;
     private final TrackRecorder trackRecorder;
+    private final HarbourPresence harbourPresence;
     private final Logger log = LoggerFactory.getLogger(HarborWatcher.class);
 
     public HarborWatcher(BarentsWatchAISService aisService, AisStreamService aisStreamService,
                          ShipAlertService shipAlertService, DestinationProperties destinationProperties,
-                         TrackRecorder trackRecorder) {
+                         TrackRecorder trackRecorder, HarbourPresence harbourPresence) {
         this.aisService = aisService;
         this.aisStreamService = aisStreamService;
         this.shipAlertService = shipAlertService;
         this.destinationProperties = destinationProperties;
         this.trackRecorder = trackRecorder;
+        this.harbourPresence = harbourPresence;
     }
 
 
@@ -93,34 +98,58 @@ public class HarborWatcher {
     }
 
     private void handleShip(AISShip ship, DestinationProfile destination) {
-
-
-        if (ship.name() == null || ship.destination() == null) {
+        if (ship.name() == null) {
             return;
         }
 
-        boolean destinationMatch = matchesDestination(ship, destination);
-
-        if (destinationMatch) {
+        boolean isBoundForDestination = matchesDestination(ship, destination);
+        if (isBoundForDestination) {
             trackRecorder.addToWatchlistIfNew(ship);
         }
-        if (destinationMatch || trackRecorder.isWatchlisted(ship.mmsi())) {
-            trackRecorder.record(ship);
+        // A berthed ship often blanks or rewrites its destination, so watchlisted ships are
+        // followed on position alone — otherwise they go dark exactly when they arrive.
+        if (!isBoundForDestination && !trackRecorder.isWatchlisted(ship.mmsi())) {
+            return;
+        }
+        trackRecorder.record(ship);
+
+        if (harbourPresence.hasJustArrived(ship) && arrivalCooldown.shouldAlert(ship.mmsi())) {
+            announceArrival(ship, destination);
+            return;
         }
 
-        if (destinationMatch && alertCooldown.shouldAlert(ship.mmsi())) {
-            log.info(
-                    "🚨 Skip mot {}: name={}, mmsi={}, sog={}, heading={}, pos=({}, {})",
-                    destination.name(),
-                    ship.name(),
-                    ship.mmsi(),
-                    ship.speed(),
-                    ship.heading(),
-                    ship.latitude(),
-                    ship.longitude()
-            );
-            shipAlertService.sendShipAlert(ship, destination.name(), destination.position());
+        if (isBoundForDestination
+                && !harbourPresence.isInHarbour(ship.mmsi())
+                && alertCooldown.shouldAlert(ship.mmsi())) {
+            announceApproach(ship, destination);
         }
+    }
+
+    private void announceApproach(AISShip ship, DestinationProfile destination) {
+        log.info(
+                "🚨 Skip mot {}: name={}, mmsi={}, sog={}, heading={}, pos=({}, {})",
+                destination.name(),
+                ship.name(),
+                ship.mmsi(),
+                ship.speed(),
+                ship.heading(),
+                ship.latitude(),
+                ship.longitude()
+        );
+        shipAlertService.sendShipAlert(ship, destination.name(), destination.position());
+    }
+
+    private void announceArrival(AISShip ship, DestinationProfile destination) {
+        log.info(
+                "⚓ Skip framme i {}: name={}, mmsi={}, sog={}, pos=({}, {})",
+                destination.name(),
+                ship.name(),
+                ship.mmsi(),
+                ship.speed(),
+                ship.latitude(),
+                ship.longitude()
+        );
+        shipAlertService.sendArrivalAlert(ship, destination.name());
     }
 
     private boolean matchesDestination(AISShip ship, DestinationProfile profile) {
